@@ -15,21 +15,33 @@ class Conta:
         self.fila_notificacoes = Queue()
 
     def transferencia(self, usuario, conta_destino, valor):
-        with self.mutex_saldo: # Garantia da Exclusão Mútua
+        primeira, segunda = sorted(
+            [self, conta_destino],
+            key=lambda conta: conta.nome_conta
+        )
 
-            if self.saldo >= valor:
-                time.sleep(random.uniform(0.1, 0.5))
+        with primeira.mutex_saldo: # Garantia da Exclusão Mútua
 
-                conta_destino.saldo += valor
-                self.saldo -= valor
-                self.saldo -= self.__taxa()
-                self.historico_transacoes.append(-valor)
-                conta_destino.historico_transacoes.append(valor)
+            with segunda.mutex_saldo:
 
-                print(f"[{usuario} - {self.nome_conta}] Transferência APROVADA no valor de R$ {valor:.2f} para {conta_destino.nome_conta}. Saldo atual: {self.saldo:.2f}")
-                print(f"[{usuario} - {self.nome_conta}] Taxa de transferência cobrada no valor de R$ {self.__taxa():.2f}")
-            else:
-                print(f"[{usuario} - {self.nome_conta}] Transferência de R$ {valor:.2f} NEGADA! Saldo insuficiente ({self.saldo:.2f}).")
+                if self.saldo >= valor:
+                    time.sleep(random.uniform(0.1, 0.5))
+
+                    conta_destino.saldo += valor
+                    self.saldo -= valor
+
+                    taxa = self.__taxa()
+
+                    self.saldo -= taxa
+
+                    self.historico_transacoes.append(-valor)
+                    self.historico_transacoes.append(-taxa)
+                    conta_destino.historico_transacoes.append(valor)
+
+                    print(f"[{usuario} - {self.nome_conta}] Transferência APROVADA no valor de R$ {valor:.2f} para {conta_destino.nome_conta}. Saldo atual: {self.saldo:.2f}")
+                    print(f"[{usuario} - {self.nome_conta}] Taxa de transferência cobrada no valor de R$ {self.__taxa():.2f}")
+                else:
+                    print(f"[{usuario} - {self.nome_conta}] Transferência de R$ {valor:.2f} NEGADA! Saldo insuficiente ({self.saldo:.2f}).")
 
 
     def saque(self, usuario, valor):
@@ -60,7 +72,6 @@ class Conta:
 
     def __taxa(self): # Coba uma taxa aleatória pela transferência realizada
         taxa = self.saldo * random.uniform(0.001, 0.003)
-        self.historico_transacoes.append(-taxa)
 
         return taxa
 
@@ -125,6 +136,28 @@ if __name__ == "__main__":
 
     for thread in threads_list:
         thread.join()
+
+    saldo_inicial_a = 1000.0
+    saldo_atual_a = conta_a.saldo
+    soma_historico_a = sum(conta_a.historico_transacoes)
+    saldo_esperado_a = saldo_inicial_a + soma_historico_a
+
+    print(f"\n--- [Saldo final na Conta A] ---")
+    print(f"-- Saldo esperado: R$ {saldo_esperado_a:.2f}")
+    print(f"-- Saldo atual: R$ {saldo_atual_a:.2f}")
+    print(f"-- Soma do Histórico: R$ {soma_historico_a:.2f}")
+    print(f"--------------------------------\n")
+
+    saldo_inicial_b = 600.0
+    saldo_atual_b = conta_b.saldo
+    soma_historico_b = sum(conta_b.historico_transacoes)
+    saldo_esperado_b = saldo_inicial_b + soma_historico_b
+
+    print(f"\n--- [Saldo final na Conta B] ---")
+    print(f"-- Saldo esperado: R$ {saldo_esperado_b:.2f}")
+    print(f"-- Saldo atual: R$ {saldo_atual_b:.2f}")
+    print(f"-- Soma do Histórico: R$ {soma_historico_b:.2f}")
+    print(f"--------------------------------\n")
 
     print()
     print("Fim da simulação.")
