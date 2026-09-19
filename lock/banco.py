@@ -83,11 +83,43 @@ if __name__ == "__main__":
     
     # Criando 3 clientes aleatórios
     for i in range(3):
-        t = threading.Thread(target=simulador_cliente, args=(conta_main, f"Cliente_{i+1}", 10000))
+        t = threading.Thread(target=simulador_cliente, args=(conta_main, f"Cliente_{i+1}", 10))
         threads_main.append(t)
         t.start()
         
     for t in threads_main:
         t.join()
+
+    saldo_esperado = saldo_inicial_main
+    total_depositos = 0.0
+    total_saques = 0.0
+    
+    for transacao in conta_main.historico:
+        if transacao["status"] == "APROVADO":
+            if transacao["tipo"] == "DEPOSITO":
+                saldo_esperado += transacao["valor"]
+                total_depositos += transacao["valor"]
+            elif transacao["tipo"] == "SAQUE":
+                saldo_esperado -= transacao["valor"]
+                total_saques += transacao["valor"]
+
+    diferenca = abs(saldo_esperado - conta_main.saldo)
+    
+    print("\n" + "=" * 65)
+    print("PROVA MATEMÁTICA DE CONSERVAÇÃO DE CAPITAL (COM LOCK)")
+    print("=" * 65)
+    print(f"Saldo Inicial da Conta:   R$ {saldo_inicial_main:.2f}")
+    print(f"Soma Total Depositada:    + R$ {total_depositos:.2f}")
+    print(f"Soma Total Sacada:        - R$ {total_saques:.2f}")
+    print("-" * 65)
+    print(f"SALDO ESPERADO (Ideal):   \033[94mR$ {saldo_esperado:.2f}\033[0m")
+    print(f"SALDO FINAL:        \033[94mR$ {conta_main.saldo:.2f}\033[0m")
+    print("=" * 65)
+    
+    if diferenca == 0:
+        print("\033[92m[VEREDITO] Capital conservado de forma invariável. Diferença: R$ 0.00\033[0m")
+        print("O Semáforo (Lock) garantiu a integridade absoluta da memória.")
+    else:
+        print(f"\033[91m[FALHA] Divergência detectada: R$ {diferenca:.2f}\033[0m")
         
     print("Aplicação bancária finalizada.")

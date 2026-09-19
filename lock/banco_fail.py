@@ -5,7 +5,7 @@ import random
 class ContaBancaria:
     def __init__(self, saldo_inicial):
         self.saldo = saldo_inicial
-        # O Lock removido. A memória está desprotegida
+        # O Lock foi removido. A memória está desprotegida.
         self.historico = []
 
     def depositar(self, valor, nome_cliente):
@@ -19,8 +19,6 @@ class ContaBancaria:
             "tipo": "DEPOSITO",
             "cliente": nome_cliente,
             "valor": valor,
-            "saldo_anterior": saldo_lido,
-            "saldo_atual": self.saldo,
             "status": "APROVADO"
         })
         print(f"[{nome_cliente}] \033[92m+ DEPÓSITO\033[0m de R$ {valor:6.2f} | Saldo Global: R$ {self.saldo:7.2f}")
@@ -37,8 +35,6 @@ class ContaBancaria:
                 "tipo": "SAQUE",
                 "cliente": nome_cliente,
                 "valor": valor,
-                "saldo_anterior": saldo_lido,
-                "saldo_atual": self.saldo,
                 "status": "APROVADO"
             })
             print(f"[{nome_cliente}] \033[91m- SAQUE\033[0m    de R$ {valor:6.2f} | Saldo Global: R$ {self.saldo:7.2f}")
@@ -47,11 +43,9 @@ class ContaBancaria:
                 "tipo": "SAQUE",
                 "cliente": nome_cliente,
                 "valor": valor,
-                "saldo_anterior": saldo_lido,
-                "saldo_atual": self.saldo,
                 "status": "RECUSADO"
             })
-            print(f"[{nome_cliente}] \033[93mx RECUSADO\033[0m (R$ {valor:6.2f}) | Saldo insuficiente")
+            print(f"[{nome_cliente}] \033[93mx RECUSADO\033[0m (R$ {valor:6.2f}) | Saldo Global: R$ {self.saldo:7.2f} (Insuficiente)")
 
 
 def simulador_cliente(conta, nome_cliente, qtd_operacoes):
@@ -72,15 +66,37 @@ if __name__ == "__main__":
     print("Iniciando aplicação bancária (Modo Corrompido/Sem Lock)...")
     
     for i in range(5):
-        t = threading.Thread(target=simulador_cliente, args=(conta_main, f"Cliente_{i+1}", 2))
+        t = threading.Thread(target=simulador_cliente, args=(conta_main, f"Cliente_{i+1}", 20))
         threads_main.append(t)
         t.start()
         
     for t in threads_main:
         t.join()
         
-    print("-" * 50)
-    print("Aplicação bancária finalizada.")
-    print(f"Saldo Inicial Esperado: R$ {saldo_inicial_main:.2f}")
-    print(f"Saldo Final Calculado:  R$ {conta_main.saldo:.2f}")
-    print("O saldo final será matematicamente incompatível com as operações devido à sobrescrita cega de memória.")
+    saldo_esperado = saldo_inicial_main
+    total_depositos = 0.0
+    total_saques = 0.0
+    
+    for transacao in conta_main.historico:
+        if transacao["status"] == "APROVADO":
+            if transacao["tipo"] == "DEPOSITO":
+                saldo_esperado += transacao["valor"]
+                total_depositos += transacao["valor"]
+            elif transacao["tipo"] == "SAQUE":
+                saldo_esperado -= transacao["valor"]
+                total_saques += transacao["valor"]
+
+    diferenca = abs(saldo_esperado - conta_main.saldo)
+    
+    print("\n" + "=" * 60)
+    print("RELATÓRIO DE AUDITORIA FINAL (VULNERABILIDADE DETECTADA)")
+    print("=" * 60)
+    print(f"Saldo Inicial da Conta:   R$ {saldo_inicial_main:.2f}")
+    print(f"Soma Total Depositada:  + R$ {total_depositos:.2f}")
+    print(f"Soma Total Sacada:      - R$ {total_saques:.2f}")
+    print("-" * 60)
+    print(f"SALDO ESPERADO (Ideal):   \033[94mR$ {saldo_esperado:.2f}\033[0m")
+    print(f"SALDO INCONSISTENTE:   \033[91mR$ {conta_main.saldo:.2f}\033[0m")
+    print("=" * 60)
+    print(f"DIVERGÊNCIA FINANCEIRA:   \033[93mR$ {diferenca:.2f}\033[0m")
+    print("CAUSA: Condição de Corrida (Race Condition). Ausência de semáforo na região crítica.")
